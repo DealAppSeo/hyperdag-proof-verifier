@@ -1,0 +1,46 @@
+[package]
+name = "hyperdag-proof-verifier"
+version = "0.1.0"
+edition = "2021"
+description = "Client-side Plonky3 STARK verifier for HyperDAG RepID proofs"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/DealAppSeo/hyperdag-proof-verifier"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Plonky3 — matching pins from zkp-postcard (27d59f7350daf6b02d11b01c3a55af453554b515)
+p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-fri = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-challenger = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-commit = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-uni-stark = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-symmetric = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-air = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-keccak = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+p3-monty-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "27d59f7350daf6b02d11b01c3a55af453554b515" }
+
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1.3"
+hex = "0.4"
+base64 = "0.22"
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[features]
+default = ["console_error_panic_hook"]
+
+[profile.release]
+opt-level = "z"     # smaller WASM
+lto = true
+codegen-units = 1
+strip = true

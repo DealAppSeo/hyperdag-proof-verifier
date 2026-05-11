@@ -1,0 +1,31 @@
+{
+  "name": "@hyperdag/proof-verifier",
+  "version": "0.1.0",
+  "description": "Verify HyperDAG Plonky3 STARK proofs client-side. Trust math, not a server.",
+  "main": "js/index.js",
+  "type": "module",
+  "files": [
+    "js/",
+    "pkg/",
+    "pkg-node/",
+    "pkg-web/",
+    "README.md"
+  ],
+  "keywords": [
+    "stark",
+    "plonky3",
+    "zkp",
+    "hyperdag",
+    "wasm",
+    "verifier"
+  ],
+  "license": "MIT OR Apache-2.0",
+  "repository": "github:DealAppSeo/hyperdag-proof-verifier",
+  "scripts": {
+    "build": "wasm-pack build --target bundler --out-dir pkg --release && wasm-pack build --target nodejs --out-dir pkg-node --release && wasm-pack build --target web --out-dir pkg-web --release",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
+  }
+}

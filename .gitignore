@@ -1,0 +1,6 @@
+/target
+/pkg
+/pkg-node
+/pkg-web
+/node_modules
+Cargo.lock
