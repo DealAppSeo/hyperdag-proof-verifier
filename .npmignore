@@ -1,0 +1,11 @@
+# Without this file, npm falls back to .gitignore, which excludes /pkg,
+# /pkg-node, /pkg-web — the wasm-pack build outputs that this package SHIPS.
+# The `files` array in package.json is the real allowlist; this .npmignore
+# only excludes Rust/dev sources so they never leak into the tarball.
+/target
+/src
+Cargo.toml
+Cargo.lock
+/tests
+*.test.js
+.github
