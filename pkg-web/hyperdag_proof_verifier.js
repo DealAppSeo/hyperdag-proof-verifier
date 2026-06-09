@@ -1,5 +1,22 @@
 /* @ts-self-types="./hyperdag_proof_verifier.d.ts" */
 
+/**
+ * 0.3.0 FRESHNESS CHECK — separate from cryptographic verification. `verify_proof` proves the proof
+ * is cryptographically bound to {agent_id, threshold, repid_score, epoch}; THIS decides whether that
+ * bound epoch is recent enough, given the current AUTHORITATIVE epoch (block-height-derived, supplied
+ * by the caller — NEVER by the proof). A proof minted `window` or more epochs in the past is STALE;
+ * a future-dated epoch (proof_epoch > current_epoch) is also rejected. This is the replay-across-time
+ * defense: an old proof still verifies cryptographically, but fails freshness once the chain moves on.
+ * @param {bigint} proof_epoch
+ * @param {bigint} current_epoch
+ * @param {bigint} window
+ * @returns {boolean}
+ */
+export function epoch_fresh(proof_epoch, current_epoch, window) {
+    const ret = wasm.epoch_fresh(proof_epoch, current_epoch, window);
+    return ret !== 0;
+}
+
 export function init_panic_hook() {
     wasm.init_panic_hook();
 }

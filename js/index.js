@@ -36,3 +36,16 @@ export async function verify(proofBytes, statement) {
   const resultJson = v.verify_proof(JSON.stringify(input));
   return JSON.parse(resultJson);
 }
+
+/**
+ * Freshness check (0.3.0): is a proof's bound epoch recent enough? Pure, deterministic — the caller
+ * supplies the current AUTHORITATIVE epoch (block-height-derived), never the proof.
+ * @param {number|bigint} proofEpoch  - statement.epoch from the proof
+ * @param {number|bigint} currentEpoch - the current authoritative epoch
+ * @param {number|bigint} window - max epochs old before STALE
+ * @returns {Promise<boolean>}
+ */
+export async function epochFresh(proofEpoch, currentEpoch, window) {
+  const v = await getVerifier();
+  return v.epoch_fresh(BigInt(proofEpoch), BigInt(currentEpoch), BigInt(window));
+}

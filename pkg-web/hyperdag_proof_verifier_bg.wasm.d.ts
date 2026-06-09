@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const epoch_fresh: (a: bigint, b: bigint, c: bigint) => number;
 export const verify_proof: (a: number, b: number, c: number) => void;
 export const init_panic_hook: () => void;
 export const __wbindgen_export: (a: number, b: number, c: number) => void;

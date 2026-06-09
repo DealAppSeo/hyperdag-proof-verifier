@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/proof-verifier",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Verify HyperDAG Plonky3 STARK proofs client-side. Trust math, not a server.",
   "main": "js/index.js",
   "types": "js/index.d.ts",

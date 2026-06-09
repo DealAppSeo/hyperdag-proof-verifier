@@ -26,9 +26,11 @@ use sha2::{Digest, Sha256};
 // reconstructed == repid_score - threshold - 1 ties the range check to the claimed score.
 
 /// Canonical public-input layout — keep in lockstep with the prover (CANON P-026).
-pub const NUM_PUBLIC_VALUES: usize = 18;
+/// [0..16] agent_id | [16] threshold | [17] repid_score | [18] epoch (0.3.0 freshness).
+pub const NUM_PUBLIC_VALUES: usize = 19;
 const PUB_THRESHOLD: usize = 16;
 const PUB_REPID: usize = 17;
+const PUB_EPOCH: usize = 18;
 
 pub struct RepIdRangeCheckAir {
     pub value: u32,
@@ -92,14 +94,15 @@ fn agent_id_to_16_bytes(agent_id: &str) -> [u8; 16] {
     arr
 }
 
-/// Build the canonical 18-element public-values vector (MUST match the prover).
+/// Build the canonical 19-element public-values vector (MUST match the prover).
 fn build_public_values(
     agent_id: &str,
     threshold: u64,
     repid_score: u64,
+    epoch: u64,
 ) -> Result<Vec<BabyBear>, String> {
-    if threshold >= (1u64 << 31) || repid_score >= (1u64 << 31) {
-        return Err("threshold/repid_score must be < 2^31".to_string());
+    if threshold >= (1u64 << 31) || repid_score >= (1u64 << 31) || epoch >= (1u64 << 31) {
+        return Err("threshold/repid_score/epoch must be < 2^31".to_string());
     }
     let mut pv = Vec::with_capacity(NUM_PUBLIC_VALUES);
     for b in agent_id_to_16_bytes(agent_id) {
@@ -107,6 +110,7 @@ fn build_public_values(
     }
     pv.push(BabyBear::new(threshold as u32));
     pv.push(BabyBear::new(repid_score as u32));
+    pv.push(BabyBear::new(epoch as u32));
     Ok(pv)
 }
 
@@ -118,6 +122,8 @@ pub struct Statement {
     pub repid_score: u64,
     pub threshold: u64,
     pub tier: String,
+    /// 0.3.0 — the authoritative epoch the proof was minted at (bound into the proof).
+    pub epoch: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -184,11 +190,12 @@ fn inner_verify(proof_bytes: &[u8], statement: &Statement) -> Result<(), String>
     let diff = (statement.repid_score - statement.threshold - 1) as u32;
     let air = RepIdRangeCheckAir { value: diff };
 
-    // 2. Build the public values from the claimed statement {agent_id, threshold, repid_score}.
+    // 2. Build the public values from the claimed statement {agent_id, threshold, repid_score, epoch}.
     let public_values = build_public_values(
         &statement.agent_id,
         statement.threshold,
         statement.repid_score,
+        statement.epoch,
     )?;
 
     // 3. Build the StarkConfig components (MUST match the prover exactly).
@@ -232,6 +239,17 @@ fn result_to_json(verified: bool, error: Option<String>, size: usize) -> String 
     serde_json::to_string(&result).unwrap_or_else(|_| {
         r#"{"verified":false,"error":"serialize result failed","proof_size_bytes":0,"verifier_version":"unknown"}"#.to_string()
     })
+}
+
+/// 0.3.0 FRESHNESS CHECK — separate from cryptographic verification. `verify_proof` proves the proof
+/// is cryptographically bound to {agent_id, threshold, repid_score, epoch}; THIS decides whether that
+/// bound epoch is recent enough, given the current AUTHORITATIVE epoch (block-height-derived, supplied
+/// by the caller — NEVER by the proof). A proof minted `window` or more epochs in the past is STALE;
+/// a future-dated epoch (proof_epoch > current_epoch) is also rejected. This is the replay-across-time
+/// defense: an old proof still verifies cryptographically, but fails freshness once the chain moves on.
+#[wasm_bindgen]
+pub fn epoch_fresh(proof_epoch: u64, current_epoch: u64, window: u64) -> bool {
+    current_epoch >= proof_epoch && (current_epoch - proof_epoch) <= window
 }
 
 #[cfg(test)]
@@ -290,20 +308,22 @@ mod tests {
         RowMajorMatrix::new(bits, 32)
     }
 
-    /// Produce a base64 proof for {agent_id, threshold, repid_score}.
+    const EPOCH: u64 = 1000;
+
+    /// Produce a base64 proof for {agent_id, threshold, repid_score, epoch=EPOCH}.
     fn make_proof_b64(agent_id: &str, threshold: u64, repid: u64) -> String {
         let gap = (repid - threshold - 1) as u32;
         let config = make_config();
         let air = RepIdRangeCheckAir { value: gap };
         let trace = gen_trace(gap);
         let _ = trace.height();
-        let pv = build_public_values(agent_id, threshold, repid).unwrap();
+        let pv = build_public_values(agent_id, threshold, repid, EPOCH).unwrap();
         let proof = prove(&config, &air, trace, &pv);
         let bytes = bincode::serialize(&proof).unwrap();
         base64::engine::general_purpose::STANDARD.encode(&bytes)
     }
 
-    fn run_verify(proof_b64: &str, agent_id: &str, threshold: u64, repid: u64) -> VerifyResult {
+    fn run_verify_epoch(proof_b64: &str, agent_id: &str, threshold: u64, repid: u64, epoch: u64) -> VerifyResult {
         let input = VerifyInput {
             proof_bytes: proof_b64.to_string(),
             statement: Statement {
@@ -311,10 +331,14 @@ mod tests {
                 repid_score: repid,
                 threshold,
                 tier: "ESTABLISHED".to_string(),
+                epoch,
             },
         };
         let json = serde_json::to_string(&input).unwrap();
         serde_json::from_str(&verify_proof(&json)).unwrap()
+    }
+    fn run_verify(proof_b64: &str, agent_id: &str, threshold: u64, repid: u64) -> VerifyResult {
+        run_verify_epoch(proof_b64, agent_id, threshold, repid, EPOCH)
     }
 
     #[test]
@@ -341,7 +365,6 @@ mod tests {
 
     #[test]
     fn wasm_verify_pass_boundary_threshold_plus_one() {
-        // smallest honest case: repid == threshold + 1 (gap 0, < 2^16)
         let p = make_proof_b64(AGENT_A, 1000, 1001);
         let r = run_verify(&p, AGENT_A, 1000, 1001);
         assert!(r.verified, "repid == threshold + 1 must verify: {:?}", r.error);
@@ -349,10 +372,25 @@ mod tests {
 
     #[test]
     fn wasm_verify_fail_repid_eq_threshold() {
-        // A statement claiming repid == threshold must be rejected (no real proof exists; the
-        // verifier's claim guard + the 16-bit range check both reject the wrapped gap).
-        let p = make_proof_b64(AGENT_A, 999, 2280); // a real proof for a different claim
-        let r = run_verify(&p, AGENT_A, 1000, 1000); // statement: repid == threshold
+        let p = make_proof_b64(AGENT_A, 999, 2280);
+        let r = run_verify(&p, AGENT_A, 1000, 1000);
         assert!(!r.verified, "repid == threshold must NOT verify");
+    }
+
+    #[test]
+    fn wasm_verify_fail_on_wrong_epoch() {
+        // 0.3.0: a proof minted at EPOCH must NOT verify under a different epoch (freshness binding).
+        let p = make_proof_b64(AGENT_A, 999, 2280);
+        let r = run_verify_epoch(&p, AGENT_A, 999, 2280, EPOCH + 1);
+        assert!(!r.verified, "proof must NOT verify under a different epoch");
+    }
+
+    #[test]
+    fn freshness_window_accepts_recent_rejects_stale_and_future() {
+        // epoch_fresh: current within window of proof_epoch.
+        assert!(epoch_fresh(1000, 1000, 5));  // same epoch
+        assert!(epoch_fresh(1000, 1003, 5));  // 3 epochs old, window 5 → fresh
+        assert!(!epoch_fresh(1000, 1006, 5)); // 6 epochs old, window 5 → STALE
+        assert!(!epoch_fresh(1000, 999, 5));  // future-dated proof → rejected
     }
 }
