@@ -3,7 +3,7 @@ name = "hyperdag-proof-verifier"
 version = "0.2.0"
 edition = "2021"
 description = "Client-side Plonky3 STARK verifier for HyperDAG RepID proofs"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/DealAppSeo/hyperdag-proof-verifier"
 
 [package.metadata.wasm-pack.profile.release]
