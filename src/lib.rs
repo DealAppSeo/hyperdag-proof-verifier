@@ -53,23 +53,17 @@ impl<AB: AirBuilder> Air<AB> for RepIdRangeCheckAir where AB::F: Field {
         let main = builder.main();
         let row = main.current_slice();
 
-        // MSB must be zero (value < 2^31)
-        builder.assert_eq(row[0], AB::Expr::ZERO);
+        // 16-bit range check (soundness fix, 2026-06-08) — MUST match the prover byte-for-byte.
+        // The gap must be < 2^16; the high 16 bits (row[0..16] = 2^16..2^31) are forced to ZERO,
+        // so a wrapped negative gap (repid <= threshold), ~= 2^31 mod p, cannot be represented.
+        // ASSUMPTION: repid - threshold < 65536 (true for RepID, repid <= 10000).
+        for i in 0..16 {
+            builder.assert_zero(row[i]);
+        }
 
-        // BabyBear modulus guard
-        let upper_product = row[1..5]
-            .iter()
-            .map(|&bit: &AB::Var| bit.into())
-            .product::<AB::Expr>();
-        let remaining_sum = row[5..32]
-            .iter()
-            .map(|&bit: &AB::Var| bit.into())
-            .sum::<AB::Expr>();
-        builder.when(upper_product).assert_zero(remaining_sum);
-
-        // Reconstruct the gap from its 32 bits; assert each bit is boolean.
+        // Reconstruct the gap from its low 16 bits (row[16..32] = 2^15..2^0); assert boolean.
         let mut reconstructed = AB::Expr::ZERO;
-        for i in 0..32 {
+        for i in 16..32 {
             let bit = row[i];
             builder.assert_bool(bit);
             reconstructed += AB::Expr::from_u32(1 << (31 - i)) * bit;
@@ -343,5 +337,22 @@ mod tests {
         let p = make_proof_b64(AGENT_A, 999, 2280);
         let r = run_verify(&p, AGENT_A, 999, 9999); // claim a higher score than proven
         assert!(!r.verified, "proof must NOT verify against an inflated repid_score");
+    }
+
+    #[test]
+    fn wasm_verify_pass_boundary_threshold_plus_one() {
+        // smallest honest case: repid == threshold + 1 (gap 0, < 2^16)
+        let p = make_proof_b64(AGENT_A, 1000, 1001);
+        let r = run_verify(&p, AGENT_A, 1000, 1001);
+        assert!(r.verified, "repid == threshold + 1 must verify: {:?}", r.error);
+    }
+
+    #[test]
+    fn wasm_verify_fail_repid_eq_threshold() {
+        // A statement claiming repid == threshold must be rejected (no real proof exists; the
+        // verifier's claim guard + the 16-bit range check both reject the wrapped gap).
+        let p = make_proof_b64(AGENT_A, 999, 2280); // a real proof for a different claim
+        let r = run_verify(&p, AGENT_A, 1000, 1000); // statement: repid == threshold
+        assert!(!r.verified, "repid == threshold must NOT verify");
     }
 }
