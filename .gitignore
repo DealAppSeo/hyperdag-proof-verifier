@@ -1,6 +1,6 @@
 /target
-/pkg
-/pkg-node
-/pkg-web
 /node_modules
 Cargo.lock
+# pkg, pkg-node, pkg-web are the wasm-pack build outputs. They are COMMITTED (not ignored)
+# so a git dependency (repid-engine deploys via git-dep, with no Rust/wasm toolchain in its
+# build env) gets the prebuilt WASM. .npmignore still controls the npm tarball separately.

@@ -1,0 +1,19 @@
+{
+  "name": "hyperdag-proof-verifier",
+  "description": "Client-side Plonky3 STARK verifier for HyperDAG RepID proofs",
+  "version": "0.2.0",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DealAppSeo/hyperdag-proof-verifier"
+  },
+  "files": [
+    "hyperdag_proof_verifier_bg.wasm",
+    "hyperdag_proof_verifier.js",
+    "hyperdag_proof_verifier.d.ts",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "main": "hyperdag_proof_verifier.js",
+  "types": "hyperdag_proof_verifier.d.ts"
+}

@@ -1,0 +1,3 @@
+# Intentionally empty. Overrides the wasm-pack-generated .gitignore ('*') in
+# this dir so npm publishes the wasm build outputs. Without it npm falls back
+# to that .gitignore and drops the entire package payload.
