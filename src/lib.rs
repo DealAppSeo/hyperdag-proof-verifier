@@ -21,9 +21,12 @@ use sha2::{Digest, Sha256};
 // Agent-bound statement (A1): the proof's public values are the canonical tuple
 //   [0..16] agent_id (16 bytes) | [16] threshold | [17] repid_score  (18 BabyBear elems)
 // The verifier rebuilds these public values from the supplied Statement and passes them to
-// p3_uni_stark::verify, which observes them into the Fiat-Shamir transcript. A proof made
-// for agent A therefore FAILS under agent B (replay defense), and the boundary constraint
-// reconstructed == repid_score - threshold - 1 ties the range check to the claimed score.
+// p3_uni_stark::verify, which observes them into the Fiat-Shamir transcript. The boundary
+// constraint reconstructed == repid_score - threshold - 1 ties the range check to the claimed
+// score. agent_id sits in NO constraint, only the transcript, so its binding is the 8-bit query
+// proof-of-work: about 1 in 256 foreign agent ids verify the same bytes (measured 2026-11-13,
+// 10 of 3,072). This comment used to say a proof for agent A FAILS under agent B; that was false.
+// `wasm_verify_fail_on_wrong_agent_id` checks one fixed foreign id, which is why it passes.
 
 /// Canonical public-input layout — keep in lockstep with the prover (CANON P-026).
 pub const NUM_PUBLIC_VALUES: usize = 18;
